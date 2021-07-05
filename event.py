@@ -1,15 +1,11 @@
+from __future__ import unicode_literals, print_function
 from Giveme5W1H.extractor.document import Document
 from Giveme5W1H.extractor.extractor import MasterExtractor
-
+import spacy
+from spacy.lang.en import English
 import hashlib
-
-
-class Event:
-    def __init__(self):
-        self.questions = []
-
-    def add(self, answer):
-        self.questions.append(answer)
+import json
+import numpy as np
 
 
 class EventExtractor():
@@ -21,36 +17,42 @@ class EventExtractor():
         try:
             return doc.get_top_answer('who').get_parts_as_text()
         except:
-            return ''
+            return 'not_found'
 
     def getWhere(self, doc):
         try:
             return doc.get_top_answer('where').get_parts_as_text()
         except:
-            return ''
+            return 'not_found'
 
     def getWhen(self, doc):
         try:
             return doc.get_top_answer('when').get_parts_as_text()
         except:
-            return ''
+            return 'not_found'
 
     def getWhat(self, doc):
         try:
             return doc.get_top_answer('what').get_parts_as_text()
         except:
-            return ''
+            return 'not_found'
 
     def dataLoader(self, filepath):
         with open(filepath, mode='r', encoding='utf8') as f:
             data = f.read().replace('\n', '')
-        return data.split('.')
+        return data
+
+    def get_sents(self, text):
+        nlp = English()
+        nlp.add_pipe('sentencizer')
+        doc = nlp(text)
+        return [sent.text for sent in doc.sents]
 
     def getEvent(self, doc):
         doc = self.ex.parse(doc)
         functions = [self.getWho, self.getWhat, self.getWhere, self.getWhen]
         answers = [fn(doc) for fn in functions]
-        count = sum([x != '' for x in answers])
+        count = sum([x != 'not_found' for x in answers])
         if count > 0:
             self.print_events(answers)
         return self.hash('_'.join(answers)), count
@@ -58,6 +60,10 @@ class EventExtractor():
     def print_events(self, answers):
         pp = ['{}:{}'.format(q, a) for q, a in zip(
             ['who', 'what', 'where', 'when'], answers)]
+        with open('./results.txt', 'a', encoding="utf8") as f:
+            json.dump(pp, f)
+            f.write('\n')
+
         print(pp)
 
     def hash(self, text):
@@ -90,5 +96,7 @@ class EventExtractor():
                     seen[event] = True
                 # clear current context and start again
                 sents_so_far = ''
+        with open('./results.txt', 'a') as f:
+            f.write("number of events: {}".format(len(seen.keys())))
 
         return len(seen.keys())
